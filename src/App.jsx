@@ -1,199 +1,212 @@
-import React, { useState } from "react";
-import { BookOpen, Calculator, TrendingUp } from "lucide-react";
+import React, { useState, useMemo } from 'react';
+import { Calculator, BookOpen, GraduationCap, Trash2, ChevronRight, Info } from 'lucide-react';
 
-// Subject data with coefficients
-const subjects = {
-  ALG3: 3,
-  ANA3: 5,
-  ARCHI2: 4,
-  ECON: 2,
-  ANG2: 2,
-  ELECF2: 4,
-  SFSD: 4,
-  PRST1: 4,
+const SEMESTER_DATA = {
+  S3: {
+    title: "Semestre 3",
+    groups: [
+      { name: "UE Découverte (UED2)", modules: [{ id: 'econ', name: 'Economie', coef: 2 }] },
+      { name: "UE Fondamentale (UEF5)", modules: [
+        { id: 'arch2', name: 'Architecture des ordi 2', coef: 4 },
+        { id: 'sfsd', name: 'SFSD', coef: 4 }
+      ]},
+      { name: "UE Fondamentale (UEF6)", modules: [
+        { id: 'alg3', name: 'Algèbre 3', coef: 3 },
+        { id: 'ana3', name: 'Analyse 3', coef: 5 }
+      ]},
+      { name: "UE Méthodologique (UEM2)", modules: [
+        { id: 'electf2', name: 'Electronique Fond. 2', coef: 4 },
+        { id: 'prst1', name: 'Probabilités & Stats 1', coef: 4 }
+      ]},
+      { name: "UE Transversale (UET3)", modules: [{ id: 'ang2', name: 'Anglais 2', coef: 2 }] },
+    ]
+  },
+  S4: {
+    title: "Semestre 4",
+    groups: [
+      { name: "UE Fondamentale (UEF7)", modules: [
+        { id: 'poo', name: 'POO (Prog. Orientée Objet)', coef: 4 },
+        { id: 'sinf', name: 'Intro Systèmes Info', coef: 3 }
+      ]},
+      { name: "UE Fondamentale (UEF8)", modules: [
+        { id: 'anal4', name: 'Analyse 4', coef: 5 },
+        { id: 'logm', name: 'Logique Mathématique', coef: 4 },
+        { id: 'ooe', name: 'Optique & Ondes', coef: 3 }
+      ]},
+      { name: "UE Méthodologique (UEM3)", modules: [{ id: 'prjp', name: 'Projet Pluridisciplinaire', coef: 4 }] },
+      { name: "UE Méthodologique (UEM4)", modules: [{ id: 'prst2', name: 'Probabilités & Stats 2', coef: 4 }] },
+      { name: "UE Transversale (UET4)", modules: [{ id: 'ang3', name: 'Anglais 3', coef: 2 }] },
+    ]
+  }
 };
 
-export default function App() {
-  // State to hold the marks for each subject
-  const [marks, setMarks] = useState(
-    Object.keys(subjects).reduce((acc, subj) => {
-      acc[subj] = { td: "", exam: "" };
-      return acc;
-    }, {})
-  );
+const App = () => {
+  const [activeTab, setActiveTab] = useState('S3');
+  const [marks, setMarks] = useState({ S3: {}, S4: {} });
 
-  // Handle changes in the input fields
-  const handleChange = (subj, type, value) => {
-    // Ensure the value is a valid number between 0 and 20
-    const numericValue = parseFloat(value);
-    const sanitizedValue = isNaN(numericValue) || numericValue < 0 || numericValue > 20
-      ? ""
-      : value;
-
-    setMarks((prev) => ({
-      ...prev,
-      [subj]: {
-        ...prev[subj],
-        [type]: sanitizedValue,
-      },
-    }));
-  };
-
-  // Calculate the final mark for a subject
-  const calculateFinal = (td, exam) => {
-    const tdVal = parseFloat(td) || 0;
-    const examVal = parseFloat(exam) || 0;
-    return tdVal * (1 / 3) + examVal * (2 / 3);
-  };
-
-  // Determine the color class for the final mark based on its value
-  const getFinalMarkColorClass = (finalMark) => {
-    if (finalMark < 10) {
-      return "text-red-500";
-    } else if (finalMark < 14) {
-      return "text-yellow-500";
-    } else {
-      return "text-[#3ECF8E]";
+  const handleInputChange = (sem, id, field, value) => {
+    if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 20)) {
+      setMarks(prev => ({
+        ...prev,
+        [sem]: { ...prev[sem], [id]: { ...prev[sem][id], [field]: value } }
+      }));
     }
   };
 
-  // Calculate the overall weighted average and statistics
-  const calculateStats = () => {
-    let totalWeighted = 0;
-    let totalCoeff = 0;
-    let subjectsCompleted = 0;
-    let passed = 0;
-    let failed = 0;
+  const calculateSemester = (semId) => {
+    let totalPoints = 0;
+    let totalCoefs = 0;
+    const modules = SEMESTER_DATA[semId].groups.flatMap(g => g.modules);
 
-    Object.entries(subjects).forEach(([subj, coeff]) => {
-      const { td, exam } = marks[subj];
-      if (td !== "" && exam !== "") {
-        subjectsCompleted++;
-        const finalMark = calculateFinal(td, exam);
-        totalWeighted += finalMark * coeff;
-        totalCoeff += coeff;
-        if (finalMark >= 10) {
-          passed++;
-        } else {
-          failed++;
-        }
-      }
+    modules.forEach(mod => {
+      const m = marks[semId][mod.id] || { td: '', exam: '' };
+      const td = parseFloat(m.td) || 0;
+      const exam = parseFloat(m.exam) || 0;
+      const avg = (td * (1 / 3)) + (exam * (2 / 3));
+      totalPoints += avg * mod.coef;
+      totalCoefs += mod.coef;
     });
 
-    const globalAverage = totalCoeff === 0 ? 0 : (totalWeighted / totalCoeff).toFixed(2);
-
-    return {
-      globalAverage,
-      passed,
-      failed,
-      subjectsCompleted,
-    };
+    return totalPoints / totalCoefs || 0;
   };
 
-  const stats = calculateStats();
+  const s3Avg = calculateSemester('S3');
+  const s4Avg = calculateSemester('S4');
+  const yearlyAvg = (s3Avg + s4Avg) / 2;
+
+  const resetMarks = () => {
+    if(window.confirm("Voulez-vous réinitialiser toutes les notes ?")) {
+        setMarks({ S3: {}, S4: {} });
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#121212] text-gray-200 flex flex-col items-center p-6 font-sans antialiased">
-      {/* Header section with title and icon */}
-      <div className="flex items-center gap-4 mb-8">
-        <Calculator className="w-10 h-10 text-[#3ECF8E]" />
-        <h1 className="text-4xl font-extrabold tracking-tight text-white">
-          2CP CALC S1
-        </h1>
-      </div>
-
-      {/* Main content table */}
-      <div className="w-full max-w-5xl overflow-x-auto">
-        <table className="table-auto w-full border-collapse border border-[#242424] text-center shadow-lg">
-          <thead className="bg-[#1A1A1A] text-gray-400 uppercase text-sm tracking-wide">
-            <tr>
-              <th className="p-4 border border-[#242424]">Subject</th>
-              <th className="p-4 border border-[#242424]">Coeff</th>
-              <th className="p-4 border border-[#242424]">TD</th>
-              <th className="p-4 border border-[#242424]">Exam</th>
-              <th className="p-4 border border-[#242424]">Final</th>
-              <th className="p-4 border border-[#242424]">Weighted</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(subjects).map(([subj, coeff]) => {
-              const td = marks[subj].td;
-              const exam = marks[subj].exam;
-              const finalMark = calculateFinal(td, exam);
-              const weighted = finalMark * coeff;
-
-              return (
-                <tr key={subj} className="bg-[#1A1A1A] transition-colors hover:bg-[#242424]">
-                  <td className="p-4 border border-[#242424] font-semibold flex items-center justify-center gap-2 text-white">
-                    <BookOpen className="w-5 h-5 text-[#3ECF8E]" />
-                    {subj}
-                  </td>
-                  <td className="p-4 border border-[#242424]">{coeff}</td>
-                  <td className="p-4 border border-[#242424]">
-                    <input
-                      type="number"
-                      placeholder="TD"
-                      value={td}
-                      onChange={(e) => handleChange(subj, "td", e.target.value)}
-                      className="p-2 w-24 bg-[#242424] text-gray-200 border border-[#333333] focus:outline-none focus:ring-1 focus:ring-[#3ECF8E]"
-                    />
-                  </td>
-                  <td className="p-4 border border-[#242424]">
-                    <input
-                      type="number"
-                      placeholder="Exam"
-                      value={exam}
-                      onChange={(e) => handleChange(subj, "exam", e.target.value)}
-                      className="p-2 w-24 bg-[#242424] text-gray-200 border border-[#333333] focus:outline-none focus:ring-1 focus:ring-[#3ECF8E]"
-                    />
-                  </td>
-                  <td className={`p-4 border border-[#242424] font-bold ${getFinalMarkColorClass(finalMark)}`}>
-                    {finalMark.toFixed(2)}
-                  </td>
-                  <td className="p-4 border border-[#242424] text-[#3ECF8E]">
-                    {weighted.toFixed(2)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Stats section */}
-      {stats.subjectsCompleted > 0 && (
-        <div className="mt-12 w-full max-w-5xl grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {/* Card for Subjects with Marks */}
-          <div className="bg-[#1A1A1A] p-6 border border-[#242424] shadow-xl text-center flex flex-col items-center justify-center">
-            <h2 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Subjects Completed</h2>
-            <p className="text-4xl font-extrabold text-white">{stats.subjectsCompleted}</p>
-          </div>
-
-          {/* Card for Pass/Fail Breakdown */}
-          <div className="bg-[#1A1A1A] p-6 border border-[#242424] shadow-xl text-center flex flex-col items-center justify-center">
-            <h2 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Status</h2>
-            <div className="flex items-center justify-center gap-4 text-xl">
-              <div className="flex flex-col items-center">
-                <span className="text-[#3ECF8E] font-extrabold">{stats.passed}</span>
-                <span className="text-gray-400 text-xs mt-1">Passed ($$\ge 10$$)</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-red-500 font-extrabold">{stats.failed}</span>
-                <span className="text-gray-400 text-xs mt-1">Failed ($$ \lt 10$$)</span>
-              </div>
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-20">
+      {/* Navbar */}
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
+        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <GraduationCap className="text-white w-6 h-6" />
             </div>
+            <span className="font-bold text-xl tracking-tight italic">CP2 Calculator</span>
           </div>
-
-          {/* Card for Global Average */}
-          <div className="bg-[#1A1A1A] p-6 border border-[#242424] shadow-xl text-center flex flex-col items-center justify-center">
-            <h2 className="text-sm uppercase tracking-wide text-gray-400 mb-2">Global Average</h2>
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-8 h-8 text-[#3ECF8E]" />
-              <p className="text-4xl font-extrabold text-[#3ECF8E]">{stats.globalAverage}</p>
-            </div>
-          </div>
+          <button
+            onClick={resetMarks}
+            className="flex items-center gap-2 text-sm font-medium text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-lg transition-colors"
+          >
+            <Trash2 size={18} /> Réinitialiser
+          </button>
         </div>
-      )}
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-4 pt-8">
+        {/* Yearly Summary Card */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <SummaryCard title="Moyenne S3" value={s3Avg} color="blue" />
+          <SummaryCard title="Moyenne S4" value={s4Avg} color="blue" />
+          <SummaryCard title="Moyenne Annuelle" value={yearlyAvg} color="emerald" highlight />
+        </div>
+
+        {/* Semester Tabs */}
+        <div className="flex p-1 bg-slate-200 rounded-xl w-fit mb-8">
+          {['S3', 'S4'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-8 py-2.5 rounded-lg font-bold transition-all ${
+                activeTab === tab ? 'bg-white shadow-md text-blue-600' : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* Modules Table */}
+        <div className="space-y-6">
+          {SEMESTER_DATA[activeTab].groups.map((group, idx) => (
+            <div key={idx} className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="bg-slate-50 px-6 py-3 border-b border-slate-200">
+                <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wider">{group.name}</h3>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {group.modules.map(mod => {
+                  const m = marks[activeTab][mod.id] || { td: '', exam: '' };
+                  const modAvg = ((parseFloat(m.td) || 0) * (1/3)) + ((parseFloat(m.exam) || 0) * (2/3));
+
+                  return (
+                    <div key={mod.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 items-center hover:bg-slate-50/50 transition-colors">
+                      <div className="md:col-span-5">
+                        <p className="font-semibold text-slate-800">{mod.name}</p>
+                        <p className="text-xs text-slate-400 font-medium">Coefficient: {mod.coef}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Note TD</label>
+                        <input
+                          type="number"
+                          value={m.td}
+                          onChange={(e) => handleInputChange(activeTab, mod.id, 'td', e.target.value)}
+                          className="w-full bg-slate-100 border-none rounded-lg p-2 focus:ring-2 focus:ring-blue-500 text-center font-semibold"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Note Exam</label>
+                        <input
+                          type="number"
+                          value={m.exam}
+                          onChange={(e) => handleInputChange(activeTab, mod.id, 'exam', e.target.value)}
+                          className="w-full bg-slate-100 border-none rounded-lg p-2 focus:ring-2 focus:ring-blue-500 text-center font-semibold"
+                          placeholder="0.00"
+                        />
+                      </div>
+                      <div className="md:col-span-3 text-right">
+                        <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block text-right">Moyenne Module</label>
+                        <span className={`text-xl font-black ${modAvg >= 10 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                          {modAvg.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-8 flex items-center gap-2 text-slate-400 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <Info size={18} className="text-blue-500" />
+          <p className="text-sm italic">
+            Note finale = (TD × 0.333) + (Examen × 0.667). La moyenne annuelle est la moyenne arithmétique des deux semestres.
+          </p>
+        </div>
+      </main>
     </div>
   );
-}
+};
+
+// Sub-component for the top cards
+const SummaryCard = ({ title, value, color, highlight }) => (
+  <div className={`p-6 rounded-2xl border transition-all ${
+    highlight
+      ? 'bg-slate-900 border-slate-800 shadow-xl'
+      : 'bg-white border-slate-200 shadow-sm hover:shadow-md'
+  }`}>
+    <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${highlight ? 'text-slate-400' : 'text-slate-500'}`}>
+      {title}
+    </p>
+    <div className="flex items-baseline gap-2">
+      <span className={`text-3xl font-black ${
+        highlight
+          ? (value >= 10 ? 'text-emerald-400' : 'text-rose-400')
+          : (value >= 10 ? 'text-blue-600' : 'text-slate-800')
+      }`}>
+        {value.toFixed(2)}
+      </span>
+      <span className={`text-sm font-bold ${highlight ? 'text-slate-500' : 'text-slate-400'}`}>/ 20.00</span>
+    </div>
+  </div>
+);
+
+export default App;
