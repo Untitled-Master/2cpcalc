@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Calculator, BookOpen, GraduationCap, Trash2, ChevronRight, Info } from 'lucide-react';
+import React, { useState } from 'react';
+import { GraduationCap, Trash2, Info, Lock, Unlock } from 'lucide-react';
 
 const SEMESTER_DATA = {
   S3: {
@@ -33,8 +33,12 @@ const SEMESTER_DATA = {
         { id: 'logm', name: 'Logique Mathématique', coef: 4 },
         { id: 'ooe', name: 'Optique & Ondes', coef: 3 }
       ]},
-      { name: "UE Méthodologique (UEM3)", modules: [{ id: 'prjp', name: 'Projet Pluridisciplinaire', coef: 4 }] },
-      { name: "UE Méthodologique (UEM4)", modules: [{ id: 'prst2', name: 'Probabilités & Stats 2', coef: 4 }] },
+      { name: "UE Méthodologique (UEM3)", modules: [
+        { id: 'prjp', name: 'Projet Pluridisciplinaire', coef: 4 }
+      ]},
+      { name: "UE Méthodologique (UEM4)", modules: [
+        { id: 'prst2', name: 'Probabilités & Stats 2', coef: 4 }
+      ]},
       { name: "UE Transversale (UET4)", modules: [{ id: 'ang3', name: 'Anglais 3', coef: 2 }] },
     ]
   }
@@ -45,12 +49,32 @@ const App = () => {
   const [marks, setMarks] = useState({ S3: {}, S4: {} });
 
   const handleInputChange = (sem, id, field, value) => {
+    // Only allow change if not locked
+    const isLocked = marks[sem][id]?.[`${field}Locked`];
+    if (isLocked) return;
+
     if (value === '' || (parseFloat(value) >= 0 && parseFloat(value) <= 20)) {
       setMarks(prev => ({
         ...prev,
-        [sem]: { ...prev[sem], [id]: { ...prev[sem][id], [field]: value } }
+        [sem]: { 
+          ...prev[sem], 
+          [id]: { ...prev[sem][id], [field]: value } 
+        }
       }));
     }
+  };
+
+  const toggleLock = (sem, id, field) => {
+    setMarks(prev => ({
+      ...prev,
+      [sem]: {
+        ...prev[sem],
+        [id]: { 
+          ...prev[sem]?.[id], 
+          [`${field}Locked`]: !prev[sem]?.[id]?.[`${field}Locked`] 
+        }
+      }
+    }));
   };
 
   const calculateSemester = (semId) => {
@@ -76,7 +100,7 @@ const App = () => {
 
   const resetMarks = () => {
     if(window.confirm("Voulez-vous réinitialiser toutes les notes ?")) {
-        setMarks({ S3: {}, S4: {} });
+      setMarks({ S3: {}, S4: {} });
     }
   };
 
@@ -132,35 +156,79 @@ const App = () => {
               </div>
               <div className="divide-y divide-slate-100">
                 {group.modules.map(mod => {
-                  const m = marks[activeTab][mod.id] || { td: '', exam: '' };
+                  const m = marks[activeTab][mod.id] || {};
+                  const tdLocked = m.tdLocked || false;
+                  const examLocked = m.examLocked || false;
+                  
+                  // Logic for Card Color
+                  const isBothLocked = tdLocked && examLocked;
+                  const isOneLocked = (tdLocked || examLocked) && !isBothLocked;
+
+                  let rowClass = "grid grid-cols-1 md:grid-cols-12 gap-4 p-6 items-center transition-all border-l-4 ";
+                  
+                  if (isBothLocked) {
+                    rowClass += "bg-blue-50 border-l-blue-500";
+                  } else if (isOneLocked) {
+                    rowClass += "bg-orange-50 border-l-orange-400";
+                  } else {
+                    rowClass += "bg-white border-l-transparent hover:bg-slate-50/50";
+                  }
+
                   const modAvg = ((parseFloat(m.td) || 0) * (1/3)) + ((parseFloat(m.exam) || 0) * (2/3));
 
                   return (
-                    <div key={mod.id} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-6 items-center hover:bg-slate-50/50 transition-colors">
+                    <div key={mod.id} className={rowClass}>
                       <div className="md:col-span-5">
                         <p className="font-semibold text-slate-800">{mod.name}</p>
                         <p className="text-xs text-slate-400 font-medium">Coefficient: {mod.coef}</p>
                       </div>
-                      <div className="md:col-span-2">
+                      
+                      {/* TD Input */}
+                      <div className="md:col-span-2 relative group">
                         <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Note TD</label>
-                        <input
-                          type="number"
-                          value={m.td}
-                          onChange={(e) => handleInputChange(activeTab, mod.id, 'td', e.target.value)}
-                          className="w-full bg-slate-100 border-none rounded-lg p-2 focus:ring-2 focus:ring-blue-500 text-center font-semibold"
-                          placeholder="0.00"
-                        />
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={m.td || ''}
+                            disabled={tdLocked}
+                            onChange={(e) => handleInputChange(activeTab, mod.id, 'td', e.target.value)}
+                            className={`w-full border-none rounded-lg p-2 pr-8 focus:ring-2 focus:ring-blue-500 text-center font-semibold transition-colors
+                              ${tdLocked ? 'bg-white/50 text-slate-600' : 'bg-slate-100 text-slate-900'}
+                            `}
+                            placeholder="0.00"
+                          />
+                          <button 
+                            onClick={() => toggleLock(activeTab, mod.id, 'td')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            {tdLocked ? <Lock size={14} className="text-slate-600" /> : <Unlock size={14} />}
+                          </button>
+                        </div>
                       </div>
-                      <div className="md:col-span-2">
+
+                      {/* Exam Input */}
+                      <div className="md:col-span-2 relative group">
                         <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block">Note Exam</label>
-                        <input
-                          type="number"
-                          value={m.exam}
-                          onChange={(e) => handleInputChange(activeTab, mod.id, 'exam', e.target.value)}
-                          className="w-full bg-slate-100 border-none rounded-lg p-2 focus:ring-2 focus:ring-blue-500 text-center font-semibold"
-                          placeholder="0.00"
-                        />
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={m.exam || ''}
+                            disabled={examLocked}
+                            onChange={(e) => handleInputChange(activeTab, mod.id, 'exam', e.target.value)}
+                            className={`w-full border-none rounded-lg p-2 pr-8 focus:ring-2 focus:ring-blue-500 text-center font-semibold transition-colors
+                              ${examLocked ? 'bg-white/50 text-slate-600' : 'bg-slate-100 text-slate-900'}
+                            `}
+                            placeholder="0.00"
+                          />
+                          <button 
+                            onClick={() => toggleLock(activeTab, mod.id, 'exam')}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            {examLocked ? <Lock size={14} className="text-slate-600" /> : <Unlock size={14} />}
+                          </button>
+                        </div>
                       </div>
+
                       <div className="md:col-span-3 text-right">
                         <label className="text-[10px] font-bold text-slate-400 uppercase mb-1 block text-right">Moyenne Module</label>
                         <span className={`text-xl font-black ${modAvg >= 10 ? 'text-emerald-600' : 'text-slate-300'}`}>
@@ -178,7 +246,9 @@ const App = () => {
         <div className="mt-8 flex items-center gap-2 text-slate-400 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
           <Info size={18} className="text-blue-500" />
           <p className="text-sm italic">
-            Note finale = (TD × 0.333) + (Examen × 0.667). La moyenne annuelle est la moyenne arithmétique des deux semestres.
+            Cliquez sur le cadenas pour verrouiller une note. 
+            <span className="inline-block w-3 h-3 rounded-full bg-orange-200 ml-2 mr-1"></span> Une note validée
+            <span className="inline-block w-3 h-3 rounded-full bg-blue-200 ml-2 mr-1"></span> Module validé (deux notes)
           </p>
         </div>
       </main>
@@ -189,8 +259,8 @@ const App = () => {
 // Sub-component for the top cards
 const SummaryCard = ({ title, value, color, highlight }) => (
   <div className={`p-6 rounded-2xl border transition-all ${
-    highlight
-      ? 'bg-slate-900 border-slate-800 shadow-xl'
+    highlight 
+      ? 'bg-slate-900 border-slate-800 shadow-xl' 
       : 'bg-white border-slate-200 shadow-sm hover:shadow-md'
   }`}>
     <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${highlight ? 'text-slate-400' : 'text-slate-500'}`}>
